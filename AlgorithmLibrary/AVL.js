@@ -81,15 +81,22 @@ AVL.prototype.init = function (am, w, h) {
 };
 
 AVL.prototype.addControls = function () {
-  this.insertField = addControlToAlgorithmBar("Text", "");
+  this.insertField = addControlToAlgorithmBar("text", "");
   this.insertField.onkeydown = this.returnSubmit(
     this.insertField,
     this.insertCallback.bind(this),
-    4
+    500
   );
-  this.insertButton = addControlToAlgorithmBar("Button", "Insert");
+  // The value 500 in the call to `this.returnSubmit` is used to set HTMLInputElement.size.
+  // Browser's default is normally 20, but this app set to 4.
+  // We set it to 500 since we are allowing bulk-insert.
+  //
+  // However, we still want the input field to still look like it
+  // has a width of 4, so we force the width via style attribute. 
+  this.insertField.style.width = "4em";
+  this.insertButton = addControlToAlgorithmBar("button", "Insert");
   this.insertButton.onclick = this.insertCallback.bind(this);
-  this.deleteField = addControlToAlgorithmBar("Text", "");
+  this.deleteField = addControlToAlgorithmBar("text", "");
   this.deleteField.onkeydown = this.returnSubmit(
     this.deleteField,
     this.deleteCallback.bind(this),
@@ -116,12 +123,35 @@ AVL.prototype.reset = function () {
 
 AVL.prototype.insertCallback = function (event) {
   var insertedValue = this.insertField.value;
-  // Get text value
-  insertedValue = this.normalizeNumber(insertedValue, 4);
+
+  var tokens = null;
+  if (insertedValue.indexOf(',') !== -1) {
+    tokens = insertedValue.split(',').map((v) => v.trim()).filter((v) => (v.length !== 0));
+  } else if (insertedValue.indexOf(' ') !== -1) {
+    tokens = insertedValue.split(' ').filter((v) => (v.length !== 0));
+  } else {
+    tokens = [insertedValue];
+  }
+
+  // console.log(tokens);
+
+  // Prepare to queue multiple set animation commands.
+  const animationCommands = tokens.map((val) => {
+    val = val.trim();
+    const normalizedVal = this.normalizeNumber(val, 4);
+    var nxt = [this.insertElement.bind(this), normalizedVal];
+    // This was in the orignal code.
+    // Assume to be for going backward in animation history?
+    // It is in implementAction function.
+    this.actionHistory.push(nxt);
+    return this.insertElement(normalizedVal);
+  }).flat();
+
   if (insertedValue != "") {
     // set text value
     this.insertField.value = "";
-    this.implementAction(this.insertElement.bind(this), insertedValue);
+    // Manually start the animation.
+    this.animationManager.StartNewAnimation(animationCommands);
   }
 };
 
